@@ -3,7 +3,6 @@ use crate::models::{
     last_insert_rowid, ApprovalState, Attachment, ModelError, RichText,
 };
 use chrono::NaiveDateTime;
-use diesel::debug_query;
 
 use super::r_to_opt;
 

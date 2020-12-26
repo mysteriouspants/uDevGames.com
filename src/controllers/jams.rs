@@ -135,7 +135,7 @@ pub async fn update_jam(
 fn parse_date(date: &str) -> Result<NaiveDateTime, DTParseError> {
     NaiveDateTime::parse_from_str(
         &format!("{} 00:00:00", date),
-        "%Y-%m-%d %H:%M:%S"
+        "%Y-%m-%d %H:%M:%S",
     )
 }
 
