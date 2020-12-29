@@ -28,6 +28,36 @@ header {
   width: 357px;
 }
 
+.jam-list-jam-entries {
+  @extend .list-inline;
+
+  > li.my-jam {
+    @extend .border-primary;
+  }
+
+  li {
+    @extend .list-inline-item;
+    @extend .border;
+    @extend .rounded;
+
+    max-height: 240px;
+    max-width: 320px;
+
+    > .title {
+      @extend .bg-white;
+      @extend .py-1;
+    }
+
+    > * {
+      @extend .px-1;
+    }
+
+    > .create-link {
+      @extend .text-center;
+    }
+  }
+}
+
 footer {
   text-align: center;
 }

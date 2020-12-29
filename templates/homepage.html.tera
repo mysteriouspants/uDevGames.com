@@ -5,7 +5,18 @@
   <!-- jam {{ jam.id }} -->
   <div class="row">
     <div class="col-auto me-auto">
-      <h2 class="jam-list-title">{{ jam.title }}</h2>
+      {% if jam.summary_attachment %}
+        TODO: style me
+        <img src="{{ jam.summary_attachment }}" class="jam-list-summary-image"/>
+      {% else %}
+        <h2 class="jam-list-title">{{ jam.title }}</h2>
+      {% endif %}
+      <div class="dates">
+        {{ jam.start_date }} &mdash; {{ jam.end_date }}
+      </div>
+      <div class="jam-list-summary">
+        {{ jam.summary }}
+      </div>
     </div>
     {% if auth.user is object and "admin" in auth.user.permissions %}
       <div class="col-auto">
@@ -16,14 +27,37 @@
       </div>
     {% endif %}
   </div>
+  <div class="mt-3 row">
+    <ul class="list-inline jam-list-jam-entries">
+      <!-- for entry in jam.entries -->
+        <!-- can my entry have a blue outline? -->
+      <!-- endfor -->
+      <!-- if the jam is not closed and i haven't already submitted an entry -->
+      <li class="my-jam">
+        <div class="title bg-white">
+          <h5>Make your game here!</h5>
+        </div>
+        <p class="summary">
+          uDevGames is a public game development jam, and we welcome you to join
+          us in building and learning.
+        </p>
+        <p class="create-link">
+          <!-- TODO: link to jam entry creation -->
+          <a href="#" data-method="post" rel="nofollow"
+              class="btn btn-outline-primary" role="button">
+            Create Entry
+          </a>
+        </p>
+      </li>
+      <!-- endif -->
+    </ul>
+  </div>
 {%- endfor %}
 
-<div class="row">
-  <div class="col">
-  </div>
-</div>
+<!-- TODO: pagination? -->
+
 {% if auth.user is object and "admin" in auth.user.permissions %}
-  <div class="row">
+  <div class="row pt-3">
     <div class="col">
       {% if showing_all_jams == true %}
         <a href="/" class="btn btn-outline-secondary" role="button"
