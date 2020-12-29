@@ -7,7 +7,8 @@
 
 set -x
 
-brunch build
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+brunch watch &
 
 if [ $? -ne 0 ]; then
   echo "Fix your broken build, man."
