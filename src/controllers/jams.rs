@@ -60,7 +60,7 @@ pub async fn edit_jam(
         None => return Err(super::HandlerError::NotFound),
     };
 
-    let rich_text = match RichText::find_by_id(&conn, jam.rich_text_id)? {
+    let _rich_text = match RichText::find_by_id(&conn, jam.rich_text_id)? {
         Some(rich_text) => rich_text,
         None => return Err(super::HandlerError::NotFound),
     };

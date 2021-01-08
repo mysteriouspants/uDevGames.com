@@ -23,4 +23,5 @@ if [ $? -ne 0 ]; then
 fi
 
 export UDEVGAMES_APP_ADDRESS=$(hostname -I)
+export RUST_LOG=debug
 cargo run -- $@

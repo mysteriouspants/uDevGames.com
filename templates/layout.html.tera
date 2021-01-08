@@ -1,5 +1,6 @@
 {% extends "skeleton" %}
 {% block skeleton_content %}
+  <!-- TODO: link to / -->
   <header class="container">
     <div id="idg-img" onclick="window.location = '/'"></div>
   </header>
@@ -24,6 +25,9 @@
         {% else %}
           <span class="navbar-brand">
             Game jams and contests by
+            <!-- TODO: add an off-site link icon so it's more clear that this
+                       takes the user to a different website - i've clicked it
+                       expecting to go back to /, and i wrote the dang thing -->
             <a href="https://www.idevgames.com/">iDevGames</a>
           </span>
         {% endif %}

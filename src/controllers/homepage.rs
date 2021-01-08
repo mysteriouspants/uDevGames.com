@@ -15,23 +15,25 @@ pub fn homepage(
         user.is_admin() && show_all_jams.unwrap_or(false);
     // load the first three approved jams
     let mut jams = Vec::new();
+    let can_create_new_jam_entries = !user.is_banned();
+
     for j in Jam::find_all(&conn, !should_show_all_jams, 0, 3)? {
         jams.push(JamContext::from_model(&conn, &j, false)?);
     }
-
-    println!("{:?}", jams);
 
     #[derive(Debug, Serialize)]
     struct Context {
         auth: UserOptionalContext,
         jams: Vec<JamContext>,
         showing_all_jams: bool,
+        can_create_new_jam_entries: bool,
     }
 
     let context = Context {
         jams,
         auth: user.to_context(),
         showing_all_jams: should_show_all_jams,
+        can_create_new_jam_entries,
     };
 
     Ok(Template::render("homepage", &context))

@@ -33,23 +33,24 @@
         <!-- can my entry have a blue outline? -->
       <!-- endfor -->
       <!-- if the jam is not closed and i haven't already submitted an entry -->
-      <li class="my-jam">
-        <div class="title bg-white">
-          <h5>Make your game here!</h5>
-        </div>
-        <p class="summary">
-          uDevGames is a public game development jam, and we welcome you to join
-          us in building and learning.
-        </p>
-        <p class="create-link">
-          <!-- TODO: link to jam entry creation -->
-          <a href="#" data-method="post" rel="nofollow"
-              class="btn btn-outline-primary" role="button">
-            Create Entry
-          </a>
-        </p>
-      </li>
-      <!-- endif -->
+      {% if can_create_new_jam_entries %}
+        <li class="my-jam">
+          <div class="title bg-white">
+            <h5>Make your game here!</h5>
+          </div>
+          <p class="summary">
+            uDevGames is a public game development jam, and we welcome you to
+            join us in building and learning.
+          </p>
+          <p class="create-link">
+            <!-- TODO: link to jam entry creation -->
+            <a href="#" data-method="post" rel="nofollow"
+                class="btn btn-outline-primary" role="button">
+              Create Entry
+            </a>
+          </p>
+        </li>
+      {% endif %}
     </ul>
   </div>
 {%- endfor %}
