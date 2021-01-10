@@ -1,7 +1,7 @@
 use rocket::{State, post, response::Redirect};
 use rocket_contrib::templates::Template;
 
-use crate::db::DbPool;
+use crate::{db::DbPool, template_helpers::UserRequired};
 
 // CREATE   /jams/:jam_id/entries               -> jam_entry_id     USERS ONLY
 // UPDATE   /jams/:jam_id/entries/:jam_entry_id -> Result<()>       ADMIN/OWNER ONLY

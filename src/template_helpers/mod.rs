@@ -3,6 +3,7 @@ mod attachment_context;
 mod breadcrumbs;
 mod jam_context;
 mod user_optional;
+mod user_required;
 
 use std::num::ParseIntError;
 
@@ -11,7 +12,7 @@ use serde::Serialize;
 
 pub use crate::template_helpers::{
     admin_only::*, attachment_context::*, breadcrumbs::*, jam_context::*,
-    user_optional::*,
+    user_optional::*, user_required::*,
 };
 use crate::{
     db::DbPool,
