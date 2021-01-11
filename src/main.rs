@@ -28,7 +28,7 @@ use std::env;
 use std::num::ParseIntError;
 use std::path::PathBuf;
 
-#[rocket::main]
+#[actix_web::main]
 async fn main() {
     // load config from a .env file, really only applicable for development
     dotenv().ok();
@@ -54,7 +54,6 @@ async fn main() {
             crate::serve::serve(
                 expect_env_string("UDEVGAMES_APP_ADDRESS"),
                 expect_env_u16("UDEVGAMES_APP_PORT"),
-                expect_env_u16("UDEVGAMES_APP_WORKERS"),
                 expect_env_string("UDEVGAMES_APP_SECRET"),
                 db_pool,
                 gh_credentials,

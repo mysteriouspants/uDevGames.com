@@ -4,7 +4,7 @@ use rocket::{get, State};
 use rocket_contrib::templates::Template;
 use serde::Serialize;
 
-#[get("/?<show_all_jams>")]
+// #[get("/?<show_all_jams>")]
 pub fn homepage(
     pool: State<'_, DbPool>,
     user: UserOptional,

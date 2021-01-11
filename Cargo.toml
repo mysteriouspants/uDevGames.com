@@ -7,6 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# ssl and compression handled by nginx router
+actix-web = { version = "4.0.0-beta.1", features = [ "secure-cookies" ] }
+actix-session = "0.4"
 anyhow = "1.0.37"
 chrono = "0.4.19"
 clap = "3.0.0-beta.2"
@@ -16,23 +19,10 @@ dotenv = "0.15.0"
 hex = "0.4.2"
 md5 = "0.7.0"
 pulldown-cmark = "0.8.0"
+reqwest = { version = "0.11.0", features = [ "json" ] }
 serde = { version = "1.0.118", features = [ "derive" ] }
+tera = "1.6.1"
 thiserror = "1.0.23"
-
-[dependencies.reqwest]
-version = "0.10.10"
-features = [ "json" ]
-
-[dependencies.rocket]
-git = "https://github.com/SergioBenitez/Rocket"
-branch = "master"
-features = [ "secrets" ]
-
-[dependencies.rocket_contrib]
-git = "https://github.com/SergioBenitez/Rocket"
-branch = "master"
-default-features = false
-features = [ "compression", "helmet", "serve", "tera_templates" ]
 
 [dev-dependencies]
 tempfile = "3.1.0"
