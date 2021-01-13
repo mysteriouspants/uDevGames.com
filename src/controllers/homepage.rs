@@ -1,18 +1,28 @@
 use crate::template_helpers::{JamContext, UserOptional, UserOptionalContext};
 use crate::{db::DbPool, models::Jam};
-use rocket::{get, State};
-use rocket_contrib::templates::Template;
-use serde::Serialize;
+use crate::view::tera;
+use actix_session::Session;
+use actix_web::{HttpRequest, HttpResponse, Responder, http::header::ContentType, web};
+use serde::{Deserialize, Serialize};
 
-// #[get("/?<show_all_jams>")]
+#[derive(Debug, Deserialize)]
+pub struct QueryParams {
+    show_all_jams: Option<bool>
+}
+
+// GET /?[show_all_jams=true|false]
 pub fn homepage(
-    pool: State<'_, DbPool>,
-    user: UserOptional,
-    show_all_jams: Option<bool>,
-) -> Result<Template, super::HandlerError> {
+    pool: web::Data<DbPool>,
+    session: Session,
+    query_params: web::Query<QueryParams>,
+    req: HttpRequest,
+) -> Result<impl Responder, super::HandlerError> {
     let conn = pool.get()?;
+    let user = UserOptional::from_session(conn, session)?;
+
     let should_show_all_jams =
-        user.is_admin() && show_all_jams.unwrap_or(false);
+        user.is_admin() && query_params.show_all_jams.unwrap_or(false);
+
     // load the first three approved jams
     let mut jams = Vec::new();
     let can_create_new_jam_entries = !user.is_banned();
@@ -36,5 +46,9 @@ pub fn homepage(
         can_create_new_jam_entries,
     };
 
-    Ok(Template::render("homepage", &context))
+    Ok(
+        HttpResponse::Ok()
+            .content_type(ContentType::html())
+            .body(tera().render("homepage", &context)?)
+    )
 }

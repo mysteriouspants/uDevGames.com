@@ -1,19 +1,20 @@
-pub mod attachments;
+// pub mod attachments;
 pub mod gh_oauth;
 pub mod homepage;
-pub mod jam_entries;
-pub mod jams;
+// pub mod jam_entries;
+// pub mod jams;
 
-use rocket::{
-    http::Status, response::Responder, response::Result as RocketResult,
-    Request,
-};
+use std::future::Ready;
+use serde::Serialize;
+use actix_web::{Error as ActixError, HttpRequest, HttpResponse, Responder, http::header::ContentType};
+use actix_web::http::StatusCode;
 use thiserror::Error;
+
+use crate::view::tera;
 
 /// Unified error type for most (all?) handlers. Puts all the annoying
 /// boilerplate of derives into one spot with a single implementation of
-/// Responder to map these back onto error codes that ought to go back and hit
-/// the right error catchers.
+/// Responder.
 ///
 /// Note that it would be very tempting to use anyhow for this, however we
 /// cannot implement Responder for it. Even if we could, inferring the http
@@ -45,27 +46,58 @@ pub enum HandlerError {
     ApprovalStateParseError(#[from] crate::models::ApprovalStateParseError),
 }
 
-impl<'r, 'o: 'r> Responder<'r, 'o> for HandlerError {
-    fn respond_to(self, _request: &'r Request<'_>) -> RocketResult<'o> {
-        let r = match self {
+#[derive(Debug, Serialize)]
+struct ErrorContext {
+    message: String,
+    suppress_auth_controls: bool,
+}
+
+impl ErrorContext {
+    pub fn new(code: i32, message: &str) -> Self {
+        Self {
+            message: format!("{}: {}", code, message),
+            suppress_auth_controls: true,
+        }
+    }
+}
+
+impl Responder for HandlerError {
+    type Error = ActixError;
+    type Future = Ready<Result<HttpResponse, ActixError>>;
+
+    fn respond_to(self, req: &HttpRequest) -> Self::Future {
+        let status_code = match self {
             HandlerError::AttachmentStorageError(_) => {
-                Status::InternalServerError
-            }
-            HandlerError::DatabaseError(_) => Status::InternalServerError,
-            HandlerError::PoolError(_) => Status::InternalServerError,
-            HandlerError::HttpError(_) => Status::InternalServerError,
-            HandlerError::ParseError(_) => Status::InternalServerError,
+                StatusCode::INTERNAL_SERVER_ERROR
+            },
+            HandlerError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            HandlerError::PoolError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            HandlerError::HttpError(_) => StatusCode::InternalServerError,
+            HandlerError::ParseError(_) => StatusCode::InternalServerError,
             HandlerError::ApprovalStateParseError(_) => {
-                Status::InternalServerError
+                StatusCode::InternalServerError
             }
-            HandlerError::DieselError(_) => Status::InternalServerError,
-            HandlerError::NotFound => Status::NotFound,
+            HandlerError::DieselError(_) => StatusCode::InternalServerError,
+            HandlerError::NotFound => StatusCode::NotFound,
         };
 
-        if r == Status::InternalServerError {
-            print!("Internal error {:?}", self);
-        }
+        let response = {
+            #[derive(Debug, Serialize)]
+            struct ErrorContext {
+                message: String,
+                suppress_auth_controls: bool,
+            }
 
-        Err(r)
+            let error_context = ErrorContext {
+                message: format!("{}! Could not continue with error {}.", status_code, self),
+                suppress_auth_controls: true,
+            };
+
+            HttpResponse::build_from(status_code)
+                .content_type(ContentType::html())
+                .body(tera().render("error_page", &error_context))
+        };
+
+        Ok(response)
     }
 }

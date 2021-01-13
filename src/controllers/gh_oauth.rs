@@ -2,10 +2,6 @@ use crate::db::DbPool;
 use crate::models::GhUserRecord;
 use crate::template_helpers::{Breadcrumbs, BreadcrumbsContext};
 use reqwest::Client as ReqwestClient;
-use rocket::{
-    delete, get, http::Cookie, http::CookieJar, response::Redirect, State,
-};
-use rocket_contrib::templates::Template;
 use serde::{Deserialize, Serialize};
 
 /// Describes the two bits of information needed from Github itself to

@@ -1,13 +1,10 @@
 //! This request guard is also a template helper because it provides the user
 //! and permissions to a template context.
-use crate::{models::GhUserRecord, template_helpers::TemplateContextUser};
-use rocket::{
-    http::Status,
-    request::{FromRequest, Outcome, Request},
-};
+use crate::{db::DbConn, models::GhUserRecord, template_helpers::TemplateContextUser};
+use actix_session::Session;
 use serde::Serialize;
 
-use super::{auth_from_request, AuthFromRequestError};
+use super::{AuthFromSessionError, auth_from_session};
 
 /// Request guard for which there may or may not be a logged in user. This is
 /// for pages which can be viewed by anyone but which may change their controls
@@ -30,6 +27,20 @@ pub struct UserOptionalContext {
 }
 
 impl UserOptional {
+    pub fn from_session(conn: &DbConn, session: &Session) -> Result<UserOptional, AuthFromSessionError> {
+        match auth_from_session(conn, session) {
+            Ok(Some((user, permissions))) => {
+                Ok(UserOptional { user: Some(user), permissions })
+            },
+            Ok(None) => {
+                Ok(UserOptional { user: None, permissions: vec![] })
+            },
+            Err(e) => {
+                Err(e)
+            }
+        }
+    }
+
     pub fn is_banned(&self) -> bool {
         self.permissions.contains(&"banned".to_string())
     }
@@ -55,39 +66,10 @@ impl UserOptional {
     }
 }
 
-#[rocket::async_trait]
-impl<'a, 'r> FromRequest<'a, 'r> for UserOptional {
-    type Error = AuthFromRequestError;
-
-    async fn from_request(req: &'a Request<'r>) -> Outcome<Self, Self::Error> {
-        match auth_from_request(req) {
-            Ok(Some((user, permissions))) => Outcome::Success(UserOptional {
-                user: Some(user),
-                permissions,
-            }),
-            Ok(None) => Outcome::Success(UserOptional {
-                user: None,
-                permissions: vec![],
-            }),
-            Err(e) => match e {
-                AuthFromRequestError::DbPoolError(_) => {
-                    Outcome::Failure((Status::InternalServerError, e))
-                }
-                AuthFromRequestError::UserIdDecodeError(_) => {
-                    Outcome::Failure((Status::BadRequest, e))
-                }
-                AuthFromRequestError::DbQueryError(_) => {
-                    Outcome::Failure((Status::BadRequest, e))
-                }
-            },
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::template_helpers::user_optional::*;
-    use rocket_contrib::templates::tera::{Context, Tera};
+    use tera::Tera;
 
     /// Validates the detection of a logged in user in a template. If this
     /// breaks (highly unlikely) then a number of templates also need to be
@@ -119,13 +101,13 @@ mod tests {
         let none_result = tera
             .render(
                 "example.html",
-                &Context::from_serialize(&none_context).unwrap(),
+                &none_context,
             )
             .unwrap();
         let some_result = tera
             .render(
                 "example.html",
-                &Context::from_serialize(&some_context).unwrap(),
+                &some_context,
             )
             .unwrap();
         assert_eq!("There is no user logged in.", none_result.trim());

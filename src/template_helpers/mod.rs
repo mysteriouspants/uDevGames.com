@@ -1,23 +1,19 @@
-mod admin_only;
+// mod admin_only;
 mod attachment_context;
 mod breadcrumbs;
 mod jam_context;
 mod user_optional;
-mod user_required;
+// mod user_required;
 
-use std::num::ParseIntError;
-
-use rocket::Request;
+use actix_web::Error as ActixError;
+use actix_session::Session;
 use serde::Serialize;
 
 pub use crate::template_helpers::{
-    admin_only::*, attachment_context::*, breadcrumbs::*, jam_context::*,
-    user_optional::*, user_required::*,
+    /* admin_only::*, */ attachment_context::*, breadcrumbs::*, jam_context::*,
+    user_optional::*, /* user_required::*, */
 };
-use crate::{
-    db::DbPool,
-    models::{GhUserRecord, ModelError, Permission},
-};
+use crate::{db::DbConn, models::{GhUserRecord, ModelError, Permission}};
 use thiserror::Error;
 
 #[derive(Debug, Serialize)]
@@ -39,50 +35,30 @@ struct TemplateContextUser {
 }
 
 #[derive(Debug, Error)]
-pub enum AuthFromRequestError {
-    #[error("Could not get a connection from the pool with error {0}")]
-    DbPoolError(#[from] diesel::r2d2::PoolError),
-
+pub enum AuthFromSessionError {
     #[error("Could not parse uid from cookie with error {0}")]
-    UserIdDecodeError(#[from] ParseIntError),
+    SessionRetrieveError(#[from] ActixError),
 
     #[error("Could not query the database with error {0}")]
     DbQueryError(#[from] ModelError),
 }
 
-fn auth_from_request<'a, 'r>(
-    req: &'a Request<'r>,
-) -> Result<Option<(GhUserRecord, Vec<String>)>, AuthFromRequestError> {
-    // unwrap is okay here, if there's no pool then the entire application
-    // bootstrap was wrong
-    let pool = req.managed_state::<DbPool>().unwrap();
-    let conn = pool.get()?;
-
-    // pull the user out of the cookie, if it's there
-    let cookies = req.cookies();
-    let user_id = cookies.get_private("gh_user_id");
-
-    match user_id {
-        Some(cookie) => {
-            let value = cookie.value();
-            let uid = str::parse::<i64>(value)?;
-            let user = match GhUserRecord::find_by_id(&conn, uid)? {
-                Some(user) => user,
-                None => {
-                    // remove the nonexistent user from the cookie, effectively
-                    // logging out the user
-                    cookies.remove_private(cookie);
-                    return Ok(None);
-                }
-            };
-
-            let permissions = Permission::find_by_gh_user_id(&conn, uid)?
-                .iter()
-                .map(|p| p.name.clone())
-                .collect();
-
-            return Ok(Some((user, permissions)));
+fn auth_from_session(conn: &DbConn, session: &Session) -> Result<Option<(GhUserRecord, Vec<String>)>, AuthFromSessionError> {
+    let uid = session.get::<i64>("gh_user_id")?;
+    let user = match GhUserRecord::find_by_id(&conn, uid)? {
+        Some(user) => user,
+        None => {
+            // remove the nonexistent user from the cookie, effectively
+            // logging out the user
+            session.remove("gh_user_id");
+            return Ok(None);
         }
-        None => return Ok(None),
     };
+
+    let permissions = Permission::find_by_gh_user_id(&conn, uid)?
+        .iter()
+        .map(|p| p.name.clone())
+        .collect();
+
+    return Ok(Some((user, permissions)));
 }

@@ -9,12 +9,12 @@ mod attachments;
 mod cliopts;
 mod controllers;
 mod db;
-mod error_handlers;
 mod migrate;
 mod models;
 mod schema;
 mod serve;
 mod template_helpers;
+mod view;
 
 use crate::attachments::AttachmentStorage;
 use crate::cliopts::{Opts, SubCommand};
