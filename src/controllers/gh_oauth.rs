@@ -6,7 +6,6 @@ use actix_session::Session;
 use actix_web::{HttpResponse, http::header::ContentType, web};
 use reqwest::Client as ReqwestClient;
 use serde::{Deserialize, Serialize};
-use tera::Tera;
 
 /// Describes the two bits of information needed from Github itself to
 /// successfully complete an OAuth workflow with them. These need to be loaded
@@ -78,7 +77,7 @@ pub async fn gh_callback(
     let user_record =
         auth_with_github(&gh_client, &conn, &gh_credentials, &code).await?;
     
-        session.set("gh_user_id", user_record.id.to_string());
+    session.set("gh_user_id", user_record.id)?;
 
     Ok(
         HttpResponse::PermanentRedirect()

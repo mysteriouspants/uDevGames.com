@@ -83,7 +83,7 @@ impl ResponseError for HandlerError {
 
         HttpResponse::build(status_code)
             .set(ContentType::html())
-            .body(render_template("error_page", &error_context))
+            .body(render_template("error_page.html.tera", &error_context))
     }
 }
 

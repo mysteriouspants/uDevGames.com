@@ -34,6 +34,8 @@ async fn main() {
     // load config from a .env file, really only applicable for development
     dotenv().ok();
 
+    env_logger::init();
+
     let database_path = expect_env_string("APP_DATABASE_PATH");
     let db_pool = get_pool(&database_path);
     let opts = Opts::parse();
