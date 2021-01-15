@@ -44,7 +44,11 @@ pub enum AuthFromSessionError {
 }
 
 fn auth_from_session(conn: &DbConn, session: &Session) -> Result<Option<(GhUserRecord, Vec<String>)>, AuthFromSessionError> {
-    let uid = session.get::<i64>("gh_user_id")?;
+    let uid = match session.get::<i64>("gh_user_id")? {
+        Some(uid) => uid,
+        None => return Ok(None),
+    };
+
     let user = match GhUserRecord::find_by_id(&conn, uid)? {
         Some(user) => user,
         None => {

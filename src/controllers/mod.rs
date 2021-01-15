@@ -4,13 +4,12 @@ pub mod homepage;
 // pub mod jam_entries;
 // pub mod jams;
 
-use std::future::Ready;
 use serde::Serialize;
-use actix_web::{Error as ActixError, HttpRequest, HttpResponse, Responder, http::header::ContentType};
+use actix_web::{Error as ActixError, HttpResponse, ResponseError, http::header::ContentType};
 use actix_web::http::StatusCode;
 use thiserror::Error;
 
-use crate::view::tera;
+use crate::{template_helpers::AuthFromSessionError, view::render_template};
 
 /// Unified error type for most (all?) handlers. Puts all the annoying
 /// boilerplate of derives into one spot with a single implementation of
@@ -30,6 +29,9 @@ pub enum HandlerError {
     #[error("Failed to query the database with error {0}")]
     DatabaseError(#[from] crate::models::ModelError),
 
+    #[error("Failed to extract data from session with error {0}")]
+    SessionError(#[from] ActixError),
+
     #[error("Failed to store/retrieve attachment with error {0}")]
     AttachmentStorageError(#[from] crate::attachments::AttachmentStorageError),
 
@@ -46,58 +48,52 @@ pub enum HandlerError {
     ApprovalStateParseError(#[from] crate::models::ApprovalStateParseError),
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorContext {
-    message: String,
-    suppress_auth_controls: bool,
-}
-
-impl ErrorContext {
-    pub fn new(code: i32, message: &str) -> Self {
-        Self {
-            message: format!("{}: {}", code, message),
-            suppress_auth_controls: true,
-        }
-    }
-}
-
-impl Responder for HandlerError {
-    type Error = ActixError;
-    type Future = Ready<Result<HttpResponse, ActixError>>;
-
-    fn respond_to(self, req: &HttpRequest) -> Self::Future {
-        let status_code = match self {
+impl ResponseError for HandlerError {
+    fn status_code(&self) -> StatusCode {
+        match self {
             HandlerError::AttachmentStorageError(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             },
             HandlerError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             HandlerError::PoolError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            HandlerError::HttpError(_) => StatusCode::InternalServerError,
-            HandlerError::ParseError(_) => StatusCode::InternalServerError,
+            HandlerError::HttpError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            HandlerError::ParseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             HandlerError::ApprovalStateParseError(_) => {
-                StatusCode::InternalServerError
+                StatusCode::INTERNAL_SERVER_ERROR
             }
-            HandlerError::DieselError(_) => StatusCode::InternalServerError,
-            HandlerError::NotFound => StatusCode::NotFound,
+            HandlerError::DieselError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            HandlerError::NotFound => StatusCode::NOT_FOUND,
+            HandlerError::SessionError(_) => StatusCode::BAD_REQUEST,
+        }
+    }
+
+    fn error_response(&self) -> HttpResponse {
+        let status_code = self.status_code();
+
+        #[derive(Debug, Serialize)]
+        struct ErrorContext {
+            message: String,
+            suppress_auth_controls: bool,
+        }
+
+        let error_context = ErrorContext {
+            message: format!("{}! Could not continue with error {}.", status_code, self),
+            suppress_auth_controls: true,
         };
 
-        let response = {
-            #[derive(Debug, Serialize)]
-            struct ErrorContext {
-                message: String,
-                suppress_auth_controls: bool,
-            }
+        HttpResponse::build(status_code)
+            .set(ContentType::html())
+            .body(render_template("error_page", &error_context))
+    }
+}
 
-            let error_context = ErrorContext {
-                message: format!("{}! Could not continue with error {}.", status_code, self),
-                suppress_auth_controls: true,
-            };
-
-            HttpResponse::build_from(status_code)
-                .content_type(ContentType::html())
-                .body(tera().render("error_page", &error_context))
-        };
-
-        Ok(response)
+impl From<AuthFromSessionError> for HandlerError {
+    fn from(error: AuthFromSessionError) -> Self {
+        match error {
+            AuthFromSessionError::DbQueryError(e) =>
+                HandlerError::DatabaseError(e),
+            AuthFromSessionError::SessionRetrieveError(e) =>
+                HandlerError::SessionError(e)
+        }
     }
 }

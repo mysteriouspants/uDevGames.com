@@ -1,8 +1,12 @@
-use crate::db::DbPool;
+use crate::db::{DbConn, DbPool};
 use crate::models::GhUserRecord;
 use crate::template_helpers::{Breadcrumbs, BreadcrumbsContext};
+use crate::view::render_template;
+use actix_session::Session;
+use actix_web::{HttpResponse, http::header::ContentType, web};
 use reqwest::Client as ReqwestClient;
 use serde::{Deserialize, Serialize};
+use tera::Tera;
 
 /// Describes the two bits of information needed from Github itself to
 /// successfully complete an OAuth workflow with them. These need to be loaded
@@ -30,8 +34,7 @@ pub fn gh_client() -> ReqwestClient {
 /// Presents the login page. This is a simple page with a link to Github.com
 /// which is where users start the authorization process. Other OAuth providers
 /// may be supported in the future... but don't count on it.
-#[get("/login")]
-pub fn login_with_github(gh_credentials: State<GhCredentials>) -> Template {
+pub fn login_with_github(gh_credentials: web::Data<GhCredentials>) -> HttpResponse {
     #[derive(Serialize)]
     struct Context {
         oauth_url: String,
@@ -48,7 +51,14 @@ pub fn login_with_github(gh_credentials: State<GhCredentials>) -> Template {
         suppress_auth_controls: true,
     };
 
-    Template::render("login", &context)
+    HttpResponse::Ok()
+        .set(ContentType::html())
+        .body(render_template( "login.html.tera", &context))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GhCallbackQueryParams {
+    code: String,
 }
 
 /// Github will redirect users to this URL on successful authentication with a
@@ -56,21 +66,25 @@ pub fn login_with_github(gh_credentials: State<GhCredentials>) -> Template {
 /// can use to query the Github API as that user. Since we don't request any
 /// scopes the only thing we can do is query our current identity, which is all
 /// we wanted to do, anyway.
-#[get("/gh_callback?<code>")]
 pub async fn gh_callback(
-    gh_credentials: State<'_, GhCredentials>,
-    gh_client: State<'_, ReqwestClient>,
-    db_pool: State<'_, DbPool>,
-    cookies: &CookieJar<'_>,
-    code: String,
-) -> Result<Redirect, super::HandlerError> {
+    gh_credentials: web::Data<GhCredentials>,
+    gh_client: web::Data<ReqwestClient>,
+    pool: web::Data<DbPool>,
+    session: Session,
+    query_params: web::Query<GhCallbackQueryParams>,
+) -> Result<HttpResponse, super::HandlerError> {
+    let conn = pool.get()?;
+    let code = &query_params.code;
     let user_record =
-        auth_with_github(&gh_client, &db_pool, &gh_credentials, &code).await?;
-    let cookie = Cookie::new("gh_user_id", user_record.id.to_string());
+        auth_with_github(&gh_client, &conn, &gh_credentials, &code).await?;
+    
+        session.set("gh_user_id", user_record.id.to_string());
 
-    cookies.add_private(cookie);
-
-    Ok(Redirect::to("/"))
+    Ok(
+        HttpResponse::PermanentRedirect()
+            .header("Location", "/")
+            .finish()
+    )
 }
 
 /// The response we get back from Github with our access token, which allows us
@@ -105,14 +119,14 @@ impl std::fmt::Debug for AuthorizationResponse {
 /// Github and persists them to the database.
 async fn auth_with_github(
     gh_client: &ReqwestClient,
-    db_pool: &DbPool,
+    db_conn: &DbConn,
     gh_credentials: &GhCredentials,
     code: &String,
 ) -> Result<GhUserRecord, super::HandlerError> {
     let authorization =
         get_access_token(&gh_client, &gh_credentials, &code).await?;
     let user =
-        get_or_update_user_detail(&gh_client, &db_pool, &authorization).await?;
+        get_or_update_user_detail(&gh_client, &db_conn, &authorization).await?;
 
     Ok(user)
 }
@@ -161,12 +175,12 @@ struct UserResponse {
 /// information.
 async fn get_or_update_user_detail(
     gh_client: &ReqwestClient,
-    db_pool: &DbPool,
+    db_conn: &DbConn,
     authorization: &AuthorizationResponse,
 ) -> Result<GhUserRecord, super::HandlerError> {
     let user = get_user_detail(&gh_client, &authorization.access_token).await?;
     let gh_user_record = GhUserRecord::find_and_update(
-        &db_pool.get()?,
+        &db_conn,
         user.id,
         &user.login,
         &user.avatar_url,
@@ -194,9 +208,8 @@ async fn get_user_detail(
 }
 
 /// Logs the user out. Pitches all the cookies we set.
-#[delete("/logout")]
-pub async fn logout(cookies: &CookieJar<'_>) -> Template {
-    cookies.remove_private(Cookie::named("gh_user_id"));
+pub async fn logout(session: Session) -> HttpResponse {
+    session.purge();
 
     #[derive(Debug, Serialize)]
     struct Context {
@@ -207,5 +220,7 @@ pub async fn logout(cookies: &CookieJar<'_>) -> Template {
         breadcrumbs: Breadcrumbs::from_crumbs(vec![]).to_context(),
     };
 
-    Template::render("logout", &context)
+    HttpResponse::Ok()
+        .set(ContentType::html())
+        .body(render_template("logout.html.tera", &context))
 }

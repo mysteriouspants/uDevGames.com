@@ -1,4 +1,4 @@
-{% extends "layout" %}
+{% extends "layout.html.tera" %}
 {% block content %}
 <div class="row">
   <h1>Edit jam</h1>

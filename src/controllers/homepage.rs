@@ -1,8 +1,8 @@
 use crate::template_helpers::{JamContext, UserOptional, UserOptionalContext};
 use crate::{db::DbPool, models::Jam};
-use crate::view::tera;
+use crate::view::render_template;
 use actix_session::Session;
-use actix_web::{HttpRequest, HttpResponse, Responder, http::header::ContentType, web};
+use actix_web::{HttpResponse, http::header::ContentType, web};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -11,14 +11,13 @@ pub struct QueryParams {
 }
 
 // GET /?[show_all_jams=true|false]
-pub fn homepage(
+pub async fn homepage(
     pool: web::Data<DbPool>,
     session: Session,
     query_params: web::Query<QueryParams>,
-    req: HttpRequest,
-) -> Result<impl Responder, super::HandlerError> {
+) -> Result<HttpResponse, super::HandlerError> {
     let conn = pool.get()?;
-    let user = UserOptional::from_session(conn, session)?;
+    let user = UserOptional::from_session(&conn, &session)?;
 
     let should_show_all_jams =
         user.is_admin() && query_params.show_all_jams.unwrap_or(false);
@@ -48,7 +47,7 @@ pub fn homepage(
 
     Ok(
         HttpResponse::Ok()
-            .content_type(ContentType::html())
-            .body(tera().render("homepage", &context)?)
+            .set(ContentType::html())
+            .body(render_template("homepage.html.tera", &context))
     )
 }

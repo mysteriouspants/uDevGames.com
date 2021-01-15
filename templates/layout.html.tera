@@ -1,4 +1,4 @@
-{% extends "skeleton" %}
+{% extends "skeleton.html.tera" %}
 {% block skeleton_content %}
   <!-- TODO: link to / -->
   <header class="container">

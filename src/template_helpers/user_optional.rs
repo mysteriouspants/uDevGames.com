@@ -69,7 +69,7 @@ impl UserOptional {
 #[cfg(test)]
 mod tests {
     use crate::template_helpers::user_optional::*;
-    use tera::Tera;
+    use tera::{Context, Tera};
 
     /// Validates the detection of a logged in user in a template. If this
     /// breaks (highly unlikely) then a number of templates also need to be
@@ -101,13 +101,13 @@ mod tests {
         let none_result = tera
             .render(
                 "example.html",
-                &none_context,
+                &Context::from_serialize(&none_context).unwrap(),
             )
             .unwrap();
         let some_result = tera
             .render(
                 "example.html",
-                &some_context,
+                &Context::from_serialize(&some_context).unwrap(),
             )
             .unwrap();
         assert_eq!("There is no user logged in.", none_result.trim());

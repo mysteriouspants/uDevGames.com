@@ -13,6 +13,7 @@ mod migrate;
 mod models;
 mod schema;
 mod serve;
+mod state;
 mod template_helpers;
 mod view;
 

@@ -1,24 +1,25 @@
-use lazycell::AtomicLazyCell;
-use tera::Tera;
+use std::sync::Arc;
+use lazy_static::lazy_static;
+use arc_swap::ArcSwapOption;
+use serde::Serialize;
+use tera::{Context, Tera};
 
 
-/// Single global Tera template bean.
-static TERA: AtomicLazyCell<Tera> = AtomicLazyCell::new();
-
-/// Initializes the Tera bean. This ought to be called exactly once, before any
-/// templates are rendered.
-pub fn init_tera() {
-    let tera = match Tera::new("templates/**/*") {
-        Ok(t) => t,
-        Err(e) => {
-            println!("Error parsing template: {}", e);
-            std::process::exit(-1);
-        }
-    };
-    TERA.fill(tera);
+lazy_static! {
+    static ref TERA: ArcSwapOption<Tera> = ArcSwapOption::empty();
 }
 
-/// Gets the Tera bean. Panics if this is called before `init_tera`.
-pub fn tera() -> Tera {
-    TERA.get().expect("Template system not yet initialized.")
+pub fn init_tera() {
+    let mut t = Tera::new("templates/**/*.tera")
+        .expect("Unable to construct Tera template engine");
+    t.autoescape_on(vec![".html", "html.tera"]);
+    TERA.store(Some(Arc::new(t)));
+}
+
+pub fn render_template(tname: &str, ctxt: &impl Serialize) -> String {
+    let t = TERA.load();
+    t.iter().next()
+        .expect("The template system is uninitialized")
+        .render(tname, &Context::from_serialize(ctxt).unwrap())
+        .expect("Could not render template")
 }
