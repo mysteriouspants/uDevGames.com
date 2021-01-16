@@ -1,9 +1,11 @@
-use crate::db::{DbConn, DbPool};
 use crate::models::GhUserRecord;
 use crate::template_helpers::{Breadcrumbs, BreadcrumbsContext};
-use crate::view::render_template;
+use crate::{
+    application_context::ApplicationContext,
+    db::{DbConn, DbPool},
+};
 use actix_session::Session;
-use actix_web::{HttpResponse, http::header::ContentType, web};
+use actix_web::{http::header::ContentType, web, HttpResponse};
 use reqwest::Client as ReqwestClient;
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +35,7 @@ pub fn gh_client() -> ReqwestClient {
 /// Presents the login page. This is a simple page with a link to Github.com
 /// which is where users start the authorization process. Other OAuth providers
 /// may be supported in the future... but don't count on it.
-pub fn login_with_github(gh_credentials: web::Data<GhCredentials>) -> HttpResponse {
+pub fn login_with_github(ctxt: web::Data<ApplicationContext>) -> HttpResponse {
     #[derive(Serialize)]
     struct Context {
         oauth_url: String,
@@ -44,7 +46,7 @@ pub fn login_with_github(gh_credentials: web::Data<GhCredentials>) -> HttpRespon
     let context = Context {
         oauth_url: format!(
             "http://github.com/login/oauth/authorize?client_id={}",
-            gh_credentials.client_id
+            ctxt.gh_credentials.client_id
         ),
         breadcrumbs: Breadcrumbs::from_crumbs(vec![]).to_context(),
         suppress_auth_controls: true,
@@ -52,7 +54,7 @@ pub fn login_with_github(gh_credentials: web::Data<GhCredentials>) -> HttpRespon
 
     HttpResponse::Ok()
         .set(ContentType::html())
-        .body(render_template( "login.html.tera", &context))
+        .body(ctxt.render_template("login.html.tera", &context))
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,24 +68,21 @@ pub struct GhCallbackQueryParams {
 /// scopes the only thing we can do is query our current identity, which is all
 /// we wanted to do, anyway.
 pub async fn gh_callback(
-    gh_credentials: web::Data<GhCredentials>,
-    gh_client: web::Data<ReqwestClient>,
-    pool: web::Data<DbPool>,
+    ctxt: web::Data<ApplicationContext>,
     session: Session,
     query_params: web::Query<GhCallbackQueryParams>,
 ) -> Result<HttpResponse, super::HandlerError> {
-    let conn = pool.get()?;
+    let conn = ctxt.db_pool.get()?;
     let code = &query_params.code;
     let user_record =
-        auth_with_github(&gh_client, &conn, &gh_credentials, &code).await?;
-    
+        auth_with_github(&ctxt.gh_client, &conn, &ctxt.gh_credentials, &code)
+            .await?;
+
     session.set("gh_user_id", user_record.id)?;
 
-    Ok(
-        HttpResponse::PermanentRedirect()
-            .header("Location", "/")
-            .finish()
-    )
+    Ok(HttpResponse::PermanentRedirect()
+        .header("Location", "/")
+        .finish())
 }
 
 /// The response we get back from Github with our access token, which allows us
@@ -207,7 +206,10 @@ async fn get_user_detail(
 }
 
 /// Logs the user out. Pitches all the cookies we set.
-pub async fn logout(session: Session) -> HttpResponse {
+pub async fn logout(
+    ctxt: web::Data<ApplicationContext>,
+    session: Session,
+) -> HttpResponse {
     session.purge();
 
     #[derive(Debug, Serialize)]
@@ -221,5 +223,5 @@ pub async fn logout(session: Session) -> HttpResponse {
 
     HttpResponse::Ok()
         .set(ContentType::html())
-        .body(render_template("logout.html.tera", &context))
+        .body(ctxt.render_template("logout.html.tera", &context))
 }

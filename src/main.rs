@@ -5,6 +5,7 @@ extern crate diesel;
 #[macro_use]
 extern crate diesel_migrations;
 
+mod application_context;
 mod attachments;
 mod cliopts;
 mod controllers;
@@ -13,7 +14,6 @@ mod migrate;
 mod models;
 mod schema;
 mod serve;
-mod state;
 mod template_helpers;
 mod view;
 

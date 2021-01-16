@@ -1,22 +1,24 @@
-use crate::template_helpers::{JamContext, UserOptional, UserOptionalContext};
-use crate::{db::DbPool, models::Jam};
-use crate::view::render_template;
+use crate::models::Jam;
+use crate::{
+    application_context::ApplicationContext,
+    template_helpers::{JamContext, UserOptional, UserOptionalContext},
+};
 use actix_session::Session;
-use actix_web::{HttpResponse, http::header::ContentType, web};
+use actix_web::{http::header::ContentType, web, HttpResponse};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct QueryParams {
-    show_all_jams: Option<bool>
+    show_all_jams: Option<bool>,
 }
 
 // GET /?[show_all_jams=true|false]
 pub async fn homepage(
-    pool: web::Data<DbPool>,
+    ctxt: web::Data<ApplicationContext>,
     session: Session,
     query_params: web::Query<QueryParams>,
 ) -> Result<HttpResponse, super::HandlerError> {
-    let conn = pool.get()?;
+    let conn = ctxt.db_pool.get()?;
     let user = UserOptional::from_session(&conn, &session)?;
 
     let should_show_all_jams =
@@ -45,9 +47,7 @@ pub async fn homepage(
         can_create_new_jam_entries,
     };
 
-    Ok(
-        HttpResponse::Ok()
-            .set(ContentType::html())
-            .body(render_template("homepage.html.tera", &context))
-    )
+    Ok(HttpResponse::Ok()
+        .set(ContentType::html())
+        .body(ctxt.render_template("homepage.html.tera", &context)))
 }

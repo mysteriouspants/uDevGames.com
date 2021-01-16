@@ -4,12 +4,13 @@ pub mod homepage;
 // pub mod jam_entries;
 // pub mod jams;
 
-use serde::Serialize;
-use actix_web::{Error as ActixError, HttpResponse, ResponseError, http::header::ContentType};
 use actix_web::http::StatusCode;
+use actix_web::{
+    http::header::ContentType, Error as ActixError, HttpResponse, ResponseError,
+};
 use thiserror::Error;
 
-use crate::{template_helpers::AuthFromSessionError, view::render_template};
+use crate::template_helpers::AuthFromSessionError;
 
 /// Unified error type for most (all?) handlers. Puts all the annoying
 /// boilerplate of derives into one spot with a single implementation of
@@ -53,7 +54,7 @@ impl ResponseError for HandlerError {
         match self {
             HandlerError::AttachmentStorageError(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
-            },
+            }
             HandlerError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             HandlerError::PoolError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             HandlerError::HttpError(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -68,32 +69,27 @@ impl ResponseError for HandlerError {
     }
 
     fn error_response(&self) -> HttpResponse {
-        let status_code = self.status_code();
-
-        #[derive(Debug, Serialize)]
-        struct ErrorContext {
-            message: String,
-            suppress_auth_controls: bool,
-        }
-
-        let error_context = ErrorContext {
-            message: format!("{}! Could not continue with error {}.", status_code, self),
-            suppress_auth_controls: true,
-        };
-
-        HttpResponse::build(status_code)
-            .set(ContentType::html())
-            .body(render_template("error_page.html.tera", &error_context))
+        // TODO: someday it would be nice to use a prettier html error page, but
+        // without access to the global application state (and therefore the
+        // template renderer) this becomes impossible. This may be possible in
+        // the future if we switch to something like horrorshow, which are a
+        // bunch of functions and so don't require some global state to
+        // function.
+        HttpResponse::build(self.status_code())
+            .set(ContentType::plaintext())
+            .body(format!("Error {} caused by {}", self.status_code(), self))
     }
 }
 
 impl From<AuthFromSessionError> for HandlerError {
     fn from(error: AuthFromSessionError) -> Self {
         match error {
-            AuthFromSessionError::DbQueryError(e) =>
-                HandlerError::DatabaseError(e),
-            AuthFromSessionError::SessionRetrieveError(e) =>
+            AuthFromSessionError::DbQueryError(e) => {
+                HandlerError::DatabaseError(e)
+            }
+            AuthFromSessionError::SessionRetrieveError(e) => {
                 HandlerError::SessionError(e)
+            }
         }
     }
 }

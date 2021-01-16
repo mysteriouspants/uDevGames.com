@@ -1,10 +1,12 @@
 //! This request guard is also a template helper because it provides the user
 //! and permissions to a template context.
-use crate::{db::DbConn, models::GhUserRecord, template_helpers::TemplateContextUser};
+use crate::{
+    db::DbConn, models::GhUserRecord, template_helpers::TemplateContextUser,
+};
 use actix_session::Session;
 use serde::Serialize;
 
-use super::{AuthFromSessionError, auth_from_session};
+use super::{auth_from_session, AuthFromSessionError};
 
 /// Request guard for which there may or may not be a logged in user. This is
 /// for pages which can be viewed by anyone but which may change their controls
@@ -27,17 +29,20 @@ pub struct UserOptionalContext {
 }
 
 impl UserOptional {
-    pub fn from_session(conn: &DbConn, session: &Session) -> Result<UserOptional, AuthFromSessionError> {
+    pub fn from_session(
+        conn: &DbConn,
+        session: &Session,
+    ) -> Result<UserOptional, AuthFromSessionError> {
         match auth_from_session(conn, session) {
-            Ok(Some((user, permissions))) => {
-                Ok(UserOptional { user: Some(user), permissions })
-            },
-            Ok(None) => {
-                Ok(UserOptional { user: None, permissions: vec![] })
-            },
-            Err(e) => {
-                Err(e)
-            }
+            Ok(Some((user, permissions))) => Ok(UserOptional {
+                user: Some(user),
+                permissions,
+            }),
+            Ok(None) => Ok(UserOptional {
+                user: None,
+                permissions: vec![],
+            }),
+            Err(e) => Err(e),
         }
     }
 

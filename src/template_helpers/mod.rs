@@ -5,15 +5,18 @@ mod jam_context;
 mod user_optional;
 // mod user_required;
 
-use actix_web::Error as ActixError;
 use actix_session::Session;
+use actix_web::Error as ActixError;
 use serde::Serialize;
 
 pub use crate::template_helpers::{
-    /* admin_only::*, */ attachment_context::*, breadcrumbs::*, jam_context::*,
-    user_optional::*, /* user_required::*, */
+    /* admin_only::*, */ attachment_context::*, breadcrumbs::*,
+    jam_context::*, user_optional::*, /* user_required::*, */
 };
-use crate::{db::DbConn, models::{GhUserRecord, ModelError, Permission}};
+use crate::{
+    db::DbConn,
+    models::{GhUserRecord, ModelError, Permission},
+};
 use thiserror::Error;
 
 #[derive(Debug, Serialize)]
@@ -43,7 +46,10 @@ pub enum AuthFromSessionError {
     DbQueryError(#[from] ModelError),
 }
 
-fn auth_from_session(conn: &DbConn, session: &Session) -> Result<Option<(GhUserRecord, Vec<String>)>, AuthFromSessionError> {
+fn auth_from_session(
+    conn: &DbConn,
+    session: &Session,
+) -> Result<Option<(GhUserRecord, Vec<String>)>, AuthFromSessionError> {
     let uid = match session.get::<i64>("gh_user_id")? {
         Some(uid) => uid,
         None => return Ok(None),
